@@ -1,60 +1,71 @@
 #!/usr/bin/env python3
 """
-Fetch citation counts from Google Scholar and update index.html.
+Fetch citation counts from Google Scholar Author Profile via SerpApi and update index.html.
 
-The script searches each paper by title on Google Scholar using the `scholarly`
-library, then rewrites the inner text of the corresponding `<span class="citation-badge">`
-elements to reflect the latest citation count.
+This script fetches the author's profile, extracts the citations for each paper,
+and updates the corresponding `<span class="citation-badge">` elements.
 
 Usage:
-    python scripts/update_citations.py
+    SERPAPI_KEY=your_key python scripts/update_citations.py
 """
 
-import re
-import time
-import random
+import os
+import sys
 from pathlib import Path
-
-from scholarly import scholarly
 from bs4 import BeautifulSoup
+from serpapi import GoogleSearch
 
 # Path to the HTML file (relative to the repo root)
 HTML_PATH = Path(__file__).parent.parent / "index.html"
 
-# Mapping: span id  ->  paper title to search on Google Scholar
+# Mapping: span id  ->  substring of paper title to match from the profile
+# We use lowercase substrings to make matching robust against minor formatting differences
 PAPERS = {
-    "cite-agentexpt": "AgentExpt: Automating AI Experiment Design with Resource Retrieval Agent",
-    "cite-agentswift": "AgentSwift: Efficient LLM Agent Design via Value-guided Hierarchical Search",
-    "cite-agentsquare": "AgentSquare: Automatic LLM Agent Search in Modular Design Space",
-    "cite-largereasoningmodels": "Towards Large Reasoning Models: A Survey of Reinforced Reasoning with Large Language Models",
-    "cite-autosota": "AutoSOTA: An End-to-End Automated Research System for State-of-the-Art AI Model Discovery",
-    "cite-synergy": "Synergy-of-Thoughts: Eliciting Efficient Reasoning in Hybrid Language Models",
-    "cite-agentsociety": "AgentSociety Challenge: Designing LLM Agents for User Modeling and Recommendation on Web Platforms",
-    "cite-omniscientist": "OmniScientist: Toward a Co-evolving Ecosystem of Human and AI Scientists",
-    "cite-aiagentbehavioral": "AI agent behavioral science",
+    "cite-agentexpt": "agentexpt: automating ai experiment design",
+    "cite-agentswift": "agentswift: efficient llm agent design",
+    "cite-agentsquare": "agentsquare: automatic llm agent search",
+    "cite-largereasoningmodels": "towards large reasoning models: a survey",
+    "cite-autosota": "autosota: an end-to-end automated research system",
+    "cite-synergy": "synergy-of-thoughts: eliciting efficient reasoning",
+    "cite-agentsociety": "agentsociety challenge: designing llm agents",
+    "cite-omniscientist": "omniscientist: toward a co-evolving ecosystem",
+    "cite-aiagentbehavioral": "ai agent behavioral science",
 }
 
-# Google Scholar search URL template (used as the href for the badge link)
-SCHOLAR_SEARCH_URL = "https://scholar.google.com/scholar?q={query}"
+AUTHOR_ID = "Ba-L9PYAAAAJ"
 
 
-def fetch_citation_count(title: str) -> int | None:
-    """Return the number of citations for *title* from Google Scholar, or None on failure."""
-    try:
-        search_query = scholarly.search_pubs(title)
-        result = next(search_query, None)
-        if result is None:
-            print(f"  [WARN] No result found for: {title!r}")
-            return None
-        num_citations = result.get("num_citations", 0)
-        print(f"  [OK] '{title[:60]}...' -> {num_citations} citations")
-        return num_citations
-    except Exception as exc:
-        print(f"  [ERROR] Failed to fetch citations for {title!r}: {exc}")
-        return None
+def fetch_author_citations(api_key: str) -> dict[str, int]:
+    """Fetch the author profile using SerpApi and extract citations into a mapping."""
+    params = {
+        "engine": "google_scholar_author",
+        "author_id": AUTHOR_ID,
+        "api_key": api_key,
+        "hl": "en"
+    }
+
+    print(f"Fetching Google Scholar profile for author_id: {AUTHOR_ID}...")
+    search = GoogleSearch(params)
+    results = search.get_dict()
+
+    if "error" in results:
+        print(f"  [ERROR] SerpApi returned an error: {results['error']}")
+        sys.exit(1)
+
+    articles = results.get("articles", [])
+    print(f"  [OK] Fetched {len(articles)} articles from profile.")
+    
+    citation_map = {}
+    for article in articles:
+        title = article.get("title", "")
+        # cited_by is a dictionary like {"value": 15, "link": "..."}
+        citations = article.get("cited_by", {}).get("value", 0)
+        citation_map[title] = citations
+        
+    return citation_map
 
 
-def update_html(citations: dict[str, int | None]) -> bool:
+def update_html(author_citations: dict[str, int]) -> bool:
     """
     Rewrite HTML_PATH with updated citation badges.
     Returns True if any change was made.
@@ -63,25 +74,42 @@ def update_html(citations: dict[str, int | None]) -> bool:
     soup = BeautifulSoup(html, "html.parser")
     changed = False
 
-    for span_id, count in citations.items():
-        if count is None:
-            continue
+    # Match predefined papers with the fetched profile data
+    for span_id, title_substring in PAPERS.items():
         span = soup.find("span", id=span_id)
         if span is None:
             print(f"  [WARN] <span id='{span_id}'> not found in HTML.")
             continue
 
-        paper_title = PAPERS[span_id]
-        scholar_url = SCHOLAR_SEARCH_URL.format(
-            query=re.sub(r"\s+", "+", paper_title.strip())
-        )
-        new_text = f"Cited by {count}"
+        # Find the matching paper in the author_citations dictionary
+        matched_count = None
+        matched_title = None
+        for fetched_title, count in author_citations.items():
+            if title_substring.lower() in fetched_title.lower():
+                matched_count = count
+                matched_title = fetched_title
+                break
+        
+        if matched_count is None:
+            print(f"  [WARN] Paper matching '{title_substring}' not found in fetched profile.")
+            continue
+
+        print(f"  [HTML] Updating '{matched_title[:50]}...' -> {matched_count} citations")
+        
+        # Link to the paper's citations on Google Scholar if it has citations, 
+        # otherwise link to the author's profile
+        if matched_count > 0:
+            scholar_url = f"https://scholar.google.com/scholar?cites=&q={matched_title.replace(' ', '+')}"
+        else:
+            scholar_url = f"https://scholar.google.com/citations?user={AUTHOR_ID}"
+
+        new_text = f"Cited by {matched_count}"
 
         # Rebuild the inner anchor
         a_tag = soup.new_tag("a", href=scholar_url, target="_blank")
         a_tag.string = new_text
 
-        # Check if anything changed to avoid needless git commits
+        # Check if anything changed
         existing_a = span.find("a")
         if existing_a and existing_a.get_text(strip=True) == new_text:
             continue
@@ -89,7 +117,7 @@ def update_html(citations: dict[str, int | None]) -> bool:
         span.clear()
         span.append(a_tag)
         changed = True
-        print(f"  [HTML] Updated #{span_id} -> {new_text}")
+        print(f"    -> Changed #{span_id} to '{new_text}'")
 
     if changed:
         HTML_PATH.write_text(str(soup), encoding="utf-8")
@@ -101,18 +129,17 @@ def update_html(citations: dict[str, int | None]) -> bool:
 
 
 def main() -> None:
-    print("=== Updating citation counts from Google Scholar ===\n")
+    api_key = os.environ.get("SERPAPI_KEY")
+    if not api_key:
+        print("Error: SERPAPI_KEY environment variable is not set.")
+        sys.exit(1)
 
-    citations: dict[str, int | None] = {}
-    for span_id, title in PAPERS.items():
-        print(f"Fetching: {title[:70]}")
-        count = fetch_citation_count(title)
-        citations[span_id] = count
-        # Be polite to Google Scholar – random sleep between requests
-        time.sleep(random.uniform(3.0, 7.0))
-
+    print("=== Updating citation counts via SerpApi ===\n")
+    
+    author_citations = fetch_author_citations(api_key)
+    
     print("\n=== Updating HTML ===\n")
-    update_html(citations)
+    update_html(author_citations)
     print("\nDone.")
 
 

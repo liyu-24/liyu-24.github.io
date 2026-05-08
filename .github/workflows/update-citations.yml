@@ -26,6 +26,8 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Fetch citations and update HTML
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/update_citations.py
 
       - name: Commit and push if changed
