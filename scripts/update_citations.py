@@ -22,13 +22,13 @@ HTML_PATH = Path(__file__).parent.parent / "index.html"
 # We use lowercase substrings to make matching robust against minor formatting differences
 PAPERS = {
     "cite-agentexpt": "agentexpt: automating ai experiment design",
-    "cite-agentswift": "agentswift: efficient llm agent design",
-    "cite-agentsquare": "agentsquare: automatic llm agent search",
-    "cite-largereasoningmodels": "towards large reasoning models: a survey",
-    "cite-autosota": "autosota: an end-to-end automated research system",
-    "cite-synergy": "synergy-of-thoughts: eliciting efficient reasoning",
-    "cite-agentsociety": "agentsociety challenge: designing llm agents",
-    "cite-omniscientist": "omniscientist: toward a co-evolving ecosystem",
+    "cite-agentswift": "agentswift",
+    "cite-agentsquare": "agentsquare",
+    "cite-largereasoningmodels": "towards large reasoning models",
+    "cite-autosota": "autosota",
+    "cite-synergy": "synergy-of-thoughts",
+    "cite-agentsociety": "agentsociety challenge",
+    "cite-omniscientist": "omniscientist",
     "cite-aiagentbehavioral": "ai agent behavioral science",
 }
 
