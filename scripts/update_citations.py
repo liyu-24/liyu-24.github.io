@@ -24,7 +24,7 @@ PAPERS = {
     "cite-agentexpt": "agentexpt: automating ai experiment design",
     "cite-agentswift": "agentswift",
     "cite-agentsquare": "agentsquare",
-    "cite-largereasoningmodels": "towards large reasoning models",
+    "cite-largereasoningmodels": "large reasoning models",
     "cite-autosota": "autosota",
     "cite-synergy": "synergy-of-thoughts",
     "cite-agentsociety": "agentsociety challenge",
