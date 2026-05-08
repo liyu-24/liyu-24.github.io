@@ -1,0 +1,3 @@
+scholarly
+beautifulsoup4
+lxml
