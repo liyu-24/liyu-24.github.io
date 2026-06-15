@@ -1,4 +1,4 @@
-name: Update Citation Counts
+name: Update Citation Counts and GitHub Stars
 
 on:
   # Run every day at 06:00 UTC (14:00 CST)
@@ -30,6 +30,11 @@ jobs:
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
         run: python scripts/update_citations.py
 
+      - name: Fetch GitHub stars and update HTML
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/update_github_stars.py
+
       - name: Commit and push if changed
         run: |
           git config user.name  "github-actions[bot]"
@@ -39,6 +44,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "chore: update citation counts [skip ci]"
+            git commit -m "chore: update citation counts and GitHub stars [skip ci]"
             git push
           fi
