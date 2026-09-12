@@ -27,6 +27,10 @@ REPOS = {
         "repo": "tsinghua-fib-lab/AutoSOTA",
         "url": "https://github.com/tsinghua-fib-lab/AutoSOTA",
     },
+    "star-autosota-project": {
+        "repo": "tsinghua-fib-lab/AutoSOTA",
+        "url": "https://github.com/tsinghua-fib-lab/AutoSOTA",
+    },
 }
 
 
